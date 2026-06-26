@@ -13,28 +13,29 @@ THRESHOLD = 0.65
 
 
 def enroll_speaker(name: str, wav_path: str) -> dict:
-    """
-    Enroll a speaker. Call multiple times with the same name to average
-    embeddings — accuracy improves significantly after 3+ samples.
-    """
     os.makedirs(ENROLLED_DIR, exist_ok=True)
     new_emb = get_embedding(wav_path)
-    save_path = os.path.join(ENROLLED_DIR, f"{name}.npy")
+    save_path  = os.path.join(ENROLLED_DIR, f"{name}.npy")
+    count_path = os.path.join(ENROLLED_DIR, f"{name}_count.txt")
 
     if os.path.exists(save_path):
         existing = np.load(save_path)
-        # Weighted average — newer enrollments weighted slightly higher
-        averaged = (existing * 0.45 + new_emb * 0.55)
+        prev_count = int(open(count_path).read()) if os.path.exists(count_path) else 1
+        new_count  = prev_count + 1
+        averaged = (existing * prev_count + new_emb) / new_count
         averaged = averaged / (np.linalg.norm(averaged) + 1e-9)
         np.save(save_path, averaged)
-        print(f"[registry] Updated enrollment for '{name}'")
+        with open(count_path, "w") as f:
+            f.write(str(new_count))
+        print(f"[registry] Updated enrollment for '{name}' (n={new_count})")
     else:
         np.save(save_path, new_emb)
-        print(f"[registry] New enrollment: '{name}'")
+        with open(count_path, "w") as f:
+            f.write("1")
+        print(f"[registry] New enrollment: '{name}' (n=1)")
 
     count = len(list_enrolled())
     return {"name": name, "status": "enrolled", "total_enrolled": count}
-
 
 def identify_speaker(wav_path: str, fallback_label: str = "Unknown") -> dict:
     enrolled = _load_all_enrolled()
@@ -64,6 +65,7 @@ def identify_speaker(wav_path: str, fallback_label: str = "Unknown") -> dict:
             best_name  = name
 
     if best_score < THRESHOLD:
+        print(f"[registry] best match: {best_name} (score={best_score:.3f}, threshold={THRESHOLD})")
         return {
             "name":   "Unknown",        # ← Unknown when enrolled exist but no match
             "score":  round(best_score, 3),

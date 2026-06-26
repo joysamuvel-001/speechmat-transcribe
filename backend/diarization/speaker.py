@@ -5,7 +5,7 @@ def process_diarization(raw_segments: list) -> list:
 
     cleaned = []
     for seg in raw_segments:
-        # --- FIX: handle raw Sortformer strings "start end SPEAKER_xx" ---
+        # --- FIX: handle Sortformer strings, tuples, AND dicts ---
         if isinstance(seg, str):
             parts = seg.strip().split()
             if len(parts) < 3:
@@ -13,11 +13,17 @@ def process_diarization(raw_segments: list) -> list:
             start = float(parts[0])
             end   = float(parts[1])
             label = parts[2]
-        else:
-            # already a dict
+        elif isinstance(seg, (tuple, list)):
+            print(f"[diarization] DEBUG raw tuple/list segment: {seg!r}")
+            start, end, label = float(seg[0]), float(seg[1]), seg[2]
+        elif isinstance(seg, dict):
             label = seg.get("speaker") or seg.get("label") or "SPEAKER_00"
             start = float(seg.get("start", 0.0))
             end   = float(seg.get("end",   0.0))
+        else:
+            print(f"[diarization] unrecognized segment type: {type(seg)} -> {seg!r}")
+            continue
+        # ------------------------------------------------------------------
         # ------------------------------------------------------------------
 
         if end <= start:
