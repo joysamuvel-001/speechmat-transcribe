@@ -1,11 +1,10 @@
-
-
+import os
 import shutil
 import tempfile
 import uuid
-
 import torch
-from fastapi import FastAPI, File, UploadFile
+import soundfile as sf
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -13,13 +12,12 @@ from audio_utils.converter import convert_to_wav
 from diarization.model import run_diarization
 from diarization.speaker import process_diarization
 from transcription.asr import transcribe_segments
+from identification.registry import (
+    enroll_speaker, identify_speaker,
+    list_enrolled, delete_speaker
+)
 
-# ---------------------------------------------------------------------------
-# App setup
-# ---------------------------------------------------------------------------
-
-app = FastAPI(title="MedTranscribe API", version="1.0.0")
-
+app = FastAPI(title="MedTranscribe API", version="2.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,52 +25,71 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
+# ── Routes ──────────────────────────────────────────────────────────────────
+
+@app.post("/api/enroll")
+async def enroll(audio: UploadFile = File(...), name: str = Form(...)):
+    tmp_dir  = tempfile.mkdtemp()
+    wav_path = f"{tmp_dir}/{uuid.uuid4()}.wav"
+    try:
+        convert_to_wav(await audio.read(), wav_path)
+        result = enroll_speaker(name, wav_path)
+        return result
+    except Exception as exc:
+        print(f"[enroll] error: {exc}")
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@app.get("/api/speakers")
+async def get_speakers():
+    return {"speakers": list_enrolled()}
+
+
+@app.delete("/api/speakers/{name}")
+async def remove_speaker(name: str):
+    return delete_speaker(name)
+
 
 @app.post("/api/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     """
-    Accept a browser-recorded WebM/Opus clip, run speaker diarization,
-    then ASR on each turn, and return a structured conversation.
-
-    Response shape:
-        {
-            "text": "full concatenated transcript",
-            "conversation": [
-                {"speaker": "Doctor",  "text": "...", "start": 0.0, "end": 3.2},
-                {"speaker": "Patient", "text": "...", "start": 3.4, "end": 7.1},
-                ...
-            ]
-        }
+    Pipeline:
+      1. Convert WebM → 16kHz mono WAV
+      2. Sortformer diarization  →  raw SPEAKER_xx segments
+      3. process_diarization     →  merge close same-speaker segments (no renaming)
+      4. TitaNet identification  →  replace SPEAKER_xx with real name if enrolled
+      5. merge_by_identity       →  merge consecutive same-person turns (with gap guard)
+      6. Nemotron ASR            →  transcribe each turn
     """
     tmp_dir  = tempfile.mkdtemp()
     wav_path = f"{tmp_dir}/{uuid.uuid4()}.wav"
-
     try:
         audio_bytes = await audio.read()
-        print(f"[server] received {len(audio_bytes)} bytes  type={audio.content_type}")
+        print(f"[server] received {len(audio_bytes)} bytes")
 
-        # 1. Convert browser audio to 16kHz mono WAV
         convert_to_wav(audio_bytes, wav_path)
 
-        # 2. Run Sortformer diarization
-        raw_segments = run_diarization(wav_path)
-
-        # 3. Parse, merge, assign Doctor / Patient roles
+        raw_segments    = run_diarization(wav_path)
         labeled_segments = process_diarization(raw_segments)
 
-        # 4. Slice + transcribe each turn
-        conversation = transcribe_segments(wav_path, labeled_segments, tmp_dir)
+        print(f"[server] {len(labeled_segments)} segments after diarization")
 
-        full_text = " ".join(t["text"] for t in conversation)
+        labeled_segments = _identify_segments(wav_path, labeled_segments, tmp_dir)
+        labeled_segments = merge_by_identity(labeled_segments)
+
+        print(f"[server] {len(labeled_segments)} segments after identity merge")
+
+        conversation = transcribe_segments(wav_path, labeled_segments, tmp_dir)
+        full_text    = " ".join(t["text"] for t in conversation)
+
         return {"text": full_text, "conversation": conversation}
 
     except Exception as exc:
-        print(f"[server] error: {exc}")
+        import traceback
+        traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(exc)})
-
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -80,10 +97,91 @@ async def transcribe(audio: UploadFile = File(...)):
 @app.get("/api/health")
 async def health():
     return {
-        "status": "ok",
-        "gpu":    torch.cuda.is_available(),
-        "device": "cuda" if torch.cuda.is_available() else "cpu",
+        "status":   "ok",
+        "gpu":      torch.cuda.is_available(),
+        "device":   "cuda" if torch.cuda.is_available() else "cpu",
+        "speakers": list_enrolled(),
     }
+
+
+# ── Internal helpers ────────────────────────────────────────────────────────
+
+def _identify_segments(wav_path: str, segments: list, tmp_dir: str) -> list:
+    """
+    Slice each segment, extract TitaNet embedding, match against enrolled speakers.
+
+    Critical change: pass seg["speaker"] (which is "SPEAKER_00" etc.) as
+    fallback_label so unenrolled speakers keep their unique Sortformer ID
+    rather than all collapsing to "Unknown".
+
+    Minimum segment length: 1.0s (was 1.5s — allows short turns to be identified)
+    """
+    audio, sr = sf.read(wav_path)
+
+    for seg in segments:
+        start    = seg.get("start", 0.0)
+        end      = seg.get("end",   0.0)
+        duration = end - start
+        diarized_label = seg["speaker"]  # e.g. "SPEAKER_00"
+
+        seg["diarized_as"] = diarized_label
+
+        if duration < 1.0:
+            # Too short — keep Sortformer label, mark as not identified
+            seg["similarity"] = 0.0
+            seg["identified"] = False
+            continue
+
+        # Slice audio
+        start_s = int(start * sr)
+        end_s   = int(end   * sr)
+        seg_wav = f"{tmp_dir}/seg_{uuid.uuid4()}.wav"
+        sf.write(seg_wav, audio[start_s:end_s], sr)
+
+        # TitaNet match — pass Sortformer ID as fallback
+        result = identify_speaker(seg_wav, fallback_label=diarized_label)
+
+        seg["speaker"]    = result["name"]        # real name OR "SPEAKER_xx"
+        seg["similarity"] = result.get("score", 0.0)
+        seg["identified"] = result["name"] not in (diarized_label, "Unknown")
+
+    return segments
+
+
+def merge_by_identity(segments: list, max_gap: float = 1.5) -> list:
+    """
+    Merge consecutive segments where the SAME identified speaker continues.
+
+    Rules:
+      1. Only merge if speaker names match exactly
+      2. Only merge if the gap between segments is <= max_gap seconds
+         (prevents merging across long pauses — different thoughts/questions)
+      3. Never merge two SPEAKER_xx labels together unless they are identical
+         (i.e. Sortformer already said they're the same person)
+      4. Keep the highest similarity score when merging
+    """
+    if not segments:
+        return []
+
+    merged = [dict(segments[0])]
+
+    for seg in segments[1:]:
+        last = merged[-1]
+        gap  = seg["start"] - last["end"]
+
+        same_speaker = seg["speaker"] == last["speaker"]
+        gap_ok       = gap <= max_gap
+
+        if same_speaker and gap_ok:
+            last["end"]        = max(last["end"], seg["end"])
+            last["similarity"] = max(
+                last.get("similarity", 0.0),
+                seg.get("similarity", 0.0)
+            )
+        else:
+            merged.append(dict(seg))
+
+    return merged
 
 
 if __name__ == "__main__":

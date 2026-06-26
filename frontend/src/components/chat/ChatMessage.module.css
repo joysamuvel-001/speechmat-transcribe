@@ -1,90 +1,193 @@
-/* components/Chat/ChatMessage.module.css */
+/* ChatMessage.module.css  v3
+   Clean, professional transcript UI
+   ─────────────────────────────────── */
 
-.row {
+/* ── Shell ── */
+.chatWindow {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  background: #f8fafc;
+  padding: 0;
+  scroll-behavior: smooth;
+}
+
+/* ── Feed ── */
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 24px 32px 40px;
+}
+
+/* ── Empty state ── */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
-  width: 100%;
-  animation: appear 0.2s ease;
+  color: #94a3b8;
+  padding: 64px 24px;
+}
+.emptyIcon {
+  font-size: 2.5rem;
+  filter: grayscale(0.3);
+}
+.emptyTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: -0.01em;
+}
+.emptyHint {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  text-align: center;
+  max-width: 260px;
+  line-height: 1.5;
+}
+.emptyHint strong {
+  color: #64748b;
+  font-weight: 600;
 }
 
-@keyframes appear {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ── Individual turn ── */
+.turn {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+.turn:hover {
+  background: rgba(15, 23, 42, 0.03);
+}
+.turnUnknown {
+  opacity: 0.7;
 }
 
-/* Doctor — left, takes up left 55% */
-.rowDoctor {
-  flex-direction: row;
-  justify-content: flex-start;
-  padding-right: 30%;
-}
-
-/* Patient — right, takes up right 55% */
-.rowPatient {
-  flex-direction: row-reverse;
-  justify-content: flex-start;
-  padding-left: 30%;
-}
-
-/* ---- Avatar ---- */
+/* ── Avatar ── */
 .avatar {
-  width: 32px;
-  height: 32px;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
+  border: 1.5px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  flex-shrink: 0;
-  margin-bottom: 2px;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
 }
 
-.avatarDoctor  { background: #1a1a1a; color: #fff; }
-.avatarPatient { background: #e8eaed; color: #333; border: 1px solid #d4d6da; }
-
-/* ---- Bubble ---- */
+/* ── Bubble ── */
 .bubble {
   flex: 1;
-  padding: 12px 16px 9px;
+  min-width: 0;
+}
+
+/* ── Meta row ── */
+.meta {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
 }
 
-.bubbleDoctor {
-  background: #1e2230;
-  color: #e8edf5;
-  border-radius: 16px 16px 16px 4px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-}
-
-.bubblePatient {
-  background: #ffffff;
-  color: #111;
-  border-radius: 16px 16px 4px 16px;
-  border: 1px solid #e8eaed;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.speaker {
-  font-size: 0.62rem;
+.speakerName {
+  font-size: 0.8125rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  opacity: 0.45;
+  letter-spacing: 0.01em;
+  line-height: 1;
 }
 
-.text {
-  font-size: 0.9rem;
+/* ── Confidence badge ── */
+.badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
   line-height: 1.6;
-  margin: 0;
 }
 
+/* ── Timestamp ── */
 .timestamp {
-  font-size: 0.6rem;
-  opacity: 0.35;
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: #94a3b8;
   font-variant-numeric: tabular-nums;
-  align-self: flex-end;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* ── Text ── */
+.text {
+  font-size: 0.9375rem;
+  color: #1e293b;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.textUnknown {
+  color: #64748b;
+}
+
+/* ── Diarized-as note ── */
+.diarizedAs {
+  margin-top: 4px;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* ── Processing spinner ── */
+.spinnerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px 24px;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinnerLabel {
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
+/* ── Error ── */
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 32px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  color: #dc2626;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.errorIcon {
+  font-size: 1rem;
+  flex-shrink: 0;
 }

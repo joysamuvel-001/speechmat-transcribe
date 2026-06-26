@@ -1,12 +1,3 @@
-"""
-diarization/model.py
----------------------
-Loads the NVIDIA Sortformer diarization model once at import time
-and exposes a single run_diarization() function.
-
-Environment overrides:
-    DIAR_LOCAL_MODEL_PATH — path to a local .nemo checkpoint
-"""
 
 import os
 import torch

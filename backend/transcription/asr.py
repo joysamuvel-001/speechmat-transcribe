@@ -74,9 +74,9 @@ def transcribe_segments(
 
     # Write each turn to a temporary WAV file
     segment_paths: List[str] = []
-    for i, (start, end, _role) in enumerate(labeled_segments):
-        start_s = max(0, int(start * sample_rate))
-        end_s   = min(len(audio_np), int(end * sample_rate))
+    for i, seg in enumerate(labeled_segments):
+        start_s = max(0, int(seg["start"] * sample_rate))
+        end_s   = min(len(audio_np), int(seg["end"] * sample_rate))
         clip    = audio_np[start_s:end_s]
         path    = os.path.join(tmp_dir, f"seg_{i}.wav")
         wavfile.write(path, sample_rate, clip)
@@ -87,16 +87,17 @@ def transcribe_segments(
         outputs = _asr_model.transcribe(segment_paths)
 
     conversation: List[dict] = []
-    for (start, end, role), output in zip(labeled_segments, outputs):
+    for seg, output in zip(labeled_segments, outputs):
         text = output.text if hasattr(output, "text") else output
         text = (text or "").strip()
         if not text:
             continue
         conversation.append({
-            "speaker": role,
-            "text":    text,
-            "start":   round(start, 2),
-            "end":     round(end, 2),
+            "speaker":     seg["speaker"],       # TitaNet-identified name (or "Unknown")
+            "diarized_as": seg.get("diarized_as"),
+            "similarity":  seg.get("similarity"),
+            "text":        text,
+            "start":       round(seg["start"], 2),
+            "end":         round(seg["end"], 2),
         })
-
     return conversation

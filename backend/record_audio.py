@@ -1,13 +1,3 @@
-"""
-record_audio.py
-----------------
-Records a few seconds of audio from your default microphone and saves it
-as a 16kHz mono WAV file — the format Nemotron's ASR model expects.
-
-Usage:
-    python3 record_audio.py [seconds] [output_path]
-"""
-
 import sys
 import sounddevice as sd
 import soundfile as sf

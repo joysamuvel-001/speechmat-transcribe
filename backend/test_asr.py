@@ -1,15 +1,3 @@
-"""
-test_asr.py
------------
-Minimal end-to-end check: load NVIDIA's Nemotron speech-streaming ASR
-model and transcribe a WAV file. No streaming, no frontend -- just
-"does voice in produce text out".
-
-Model used: nvidia/nemotron-speech-streaming-en-0.6b (English, public).
-The multilingual sibling (nvidia/nemotron-3.5-asr-streaming-0.6b, which
-covers Hindi) is currently restricted to NVIDIA employees -- swap the
-MODEL_NAME below once you have access, nothing else needs to change.
-"""
 
 import os
 import sys

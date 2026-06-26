@@ -1,206 +1,316 @@
-/* components/Sidebar/Sidebar.module.css */
+/* Sidebar.module.css  v3 */
 
+/* ── Shell ── */
 .sidebar {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  background: #111318;
+  height: 100%;
+  background: #0f1117;
   border-right: 1px solid rgba(255,255,255,0.07);
-  padding: 24px 20px;
   overflow-y: auto;
-  flex-shrink: 0;
+  overflow-x: hidden;
 }
 
-/* ---- Brand ---- */
+/* ── Brand ── */
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 4px;
+  gap: 8px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
-
-.brandIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #1e2230;
-  border: 1px solid rgba(255,255,255,0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #7eb8f7;
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-.brandIcon svg { width: 20px; height: 20px; }
-
+.brandIcon { font-size: 1.2rem; }
 .brandName {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  color: #f0f0f0;
+  color: #fff;
   letter-spacing: -0.01em;
 }
 
-.brandSub {
-  font-size: 0.68rem;
-  color: #555e72;
-  margin-top: 1px;
-}
-
-/* ---- Divider ---- */
-.divider {
-  height: 1px;
-  background: rgba(255,255,255,0.07);
-  margin: 20px 0;
-}
-
-/* ---- Section ---- */
+/* ── Generic section ── */
 .section {
-  margin-bottom: 20px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.sectionLabel {
-  font-size: 0.65rem;
+.sectionTitle {
+  font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #3d4557;
-  margin-bottom: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.3);
+  margin: 0 0 10px;
 }
 
-/* ---- Status ---- */
-.statusRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.statusDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2d3244;
-  flex-shrink: 0;
-  transition: background 0.3s;
-}
-
-.statusDotActive {
-  background: #e05252;
-  box-shadow: 0 0 0 3px rgba(224,82,82,0.2);
-  animation: pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(224,82,82,0.2); }
-  50%       { box-shadow: 0 0 0 6px rgba(224,82,82,0.05); }
-}
-
-.statusText {
-  font-size: 0.8rem;
-  color: #8892a4;
-}
-
-/* ---- Speaker rows ---- */
-.speakerRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-}
-
-.speakerDotDoctor {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f0f0f0;
-  flex-shrink: 0;
-}
-
-.speakerDotPatient {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #3d4557;
-  border: 1px solid #5a647a;
-  flex-shrink: 0;
-}
-
-.speakerLabel {
-  font-size: 0.8rem;
-  color: #8892a4;
-  flex: 1;
-}
-
-.speakerCount {
-  font-size: 0.7rem;
-  color: #3d4557;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---- Record section ---- */
-.recordSection {
-  display: flex;
-  justify-content: center;
-  padding: 8px 0 4px;
-}
-
-/* ---- Actions ---- */
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 16px;
-}
-
-.actionBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  padding: 9px 10px;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  color: #6b7689;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  text-align: left;
-}
-
-.actionBtn svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-  flex-shrink: 0;
-}
-
-.actionBtn:hover {
-  background: rgba(255,255,255,0.05);
-  color: #c0c8d8;
-}
-
-.actionBtnDanger { color: #6b4040; }
-.actionBtnDanger:hover {
-  background: rgba(224,82,82,0.08);
-  color: #e05252;
-}
-
-/* ---- Footer note ---- */
-.sidebarFooter {
-  margin-top: auto;
-  padding-top: 20px;
-  display: flex;
-  gap: 7px;
-  align-items: flex-start;
-  font-size: 0.68rem;
-  color: #2d3244;
+.sectionHint {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.38);
+  margin: 0 0 12px;
   line-height: 1.5;
 }
 
-.sidebarFooter svg {
-  width: 12px;
-  height: 12px;
-  stroke: #3d4557;
+/* ── Name input ── */
+.nameInput {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.nameInput::placeholder { color: rgba(255,255,255,0.25); }
+.nameInput:focus { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); }
+
+/* ── Enroll buttons ── */
+.enrollRecord,
+.enrollStop {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.enrollRecord {
+  background: #c53030;
+  color: #fff;
+}
+.enrollRecord:hover:not(:disabled) { opacity: 0.88; }
+.enrollRecord:active:not(:disabled) { transform: scale(0.98); }
+.enrollRecord:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.enrollStop {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.enrollStop:hover { background: rgba(255,255,255,0.15); }
+
+/* Pulsing red dot inside enroll button */
+.recDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fc8181;
+  animation: pulse 1.2s ease-in-out infinite;
   flex-shrink: 0;
-  margin-top: 1px;
+}
+
+/* ── Enroll feedback ── */
+.enrollMsg {
+  font-size: 0.72rem;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  line-height: 1.4;
+}
+.loading { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.55); }
+.success { background: rgba(52,211,153,0.12);  color: #6ee7b7; }
+.error   { background: rgba(248,113,113,0.12); color: #fca5a5; }
+
+/* ── Enrolled chips ── */
+.enrolledList {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.enrolledLabel {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.enrolledChip {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.7);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+/* ── Mic / recording area ── */
+.micWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 2px;
+}
+
+/* Timer row — shown while recording */
+.timerRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.timerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f87171;
+  animation: pulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.timerText {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f87171;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* Mic button */
+.micBtn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+}
+.micBtn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.28);
+}
+.micBtn:active:not(:disabled) { transform: scale(0.95); }
+.micBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.micBtnActive {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f87171;
+  animation: ringPulse 1.8s ease-in-out infinite;
+}
+
+/* Stop square icon */
+.stopIcon {
+  width: 16px;
+  height: 16px;
+  background: #f87171;
+  border-radius: 3px;
+  display: block;
+}
+
+.micLabel {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.02em;
+}
+
+/* Processing row */
+.processingRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.processingSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.12);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+.processingText {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.4);
+}
+
+/* ── Session action buttons ── */
+.actionBtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.retryBtn,
+.newBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+  letter-spacing: 0.01em;
+}
+.retryBtn:active,
+.newBtn:active { transform: scale(0.97); }
+
+.retryBtn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.6);
+}
+.retryBtn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+
+.newBtn {
+  background: rgba(96,165,250,0.12);
+  border: 1px solid rgba(96,165,250,0.25);
+  color: #93c5fd;
+}
+.newBtn:hover { background: rgba(96,165,250,0.2); }
+
+/* ── Stats ── */
+.statsSection {
+  margin-top: auto;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-bottom: none;
+}
+.statTotal {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.4);
+  margin: 0 0 8px;
+}
+.statTotal strong {
+  color: rgba(255,255,255,0.75);
+  font-weight: 700;
+}
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+}
+.statName  { font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.75); }
+.statCount { font-size: 0.72rem; color: rgba(255,255,255,0.35); }
+
+/* ── Animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes ringPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.3); }
+  50%       { box-shadow: 0 0 0 8px rgba(248,113,113,0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
