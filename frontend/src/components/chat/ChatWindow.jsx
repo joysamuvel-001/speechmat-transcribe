@@ -1,9 +1,12 @@
 /**
- * ChatWindow.jsx  v4
+ * ChatWindow.jsx  v5
  * -------------------
  * Accepts `sessions` (array of {sessionIdx, turns[]}) instead of flat conversation.
  * Sessions render in recording order. Turns within each session are pre-sorted by start time.
  * A subtle divider separates each recording session.
+ *
+ * Change from v4: unenrolled SPEAKER_xx labels now show as "Unknown"
+ * instead of "Speaker 1", "Speaker 2" etc.
  */
 
 import styles from "./ChatMessage.module.css";
@@ -20,16 +23,14 @@ function isRawLabel(name) {
 }
 
 function isMissing(name) {
-  return !name || name === "Unknown";
+  return !name || name === "Unknown" || /^SPEAKER_\d+$/i.test(name);
 }
 
-// Always show the real speaker label from the backend/RunPod JSON.
-// "SPEAKER_00" is prettified to "Speaker 1"; enrolled names and labels
-// like "Doctor"/"Patient" pass through unchanged.
+// Enrolled names (e.g. "joy", "Dr. Priya") pass through unchanged.
+// Unenrolled SPEAKER_xx labels → "Unknown".
 function displayName(name) {
   if (isMissing(name)) return "Unknown";
-  const m = name.match(/^[Ss]peaker[_\s]?(\d+)$/i);
-  return m ? `Speaker ${parseInt(m[1], 10) + 1}` : name;
+  return name;
 }
 
 function getSpeakerColor(name) {
@@ -43,8 +44,6 @@ function getSpeakerColor(name) {
 
 function initials(name) {
   if (isMissing(name)) return "?";
-  const m = name.match(/^[Ss]peaker[_\s]?(\d+)$/i);
-  if (m) return `S${parseInt(m[1], 10) + 1}`;
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
