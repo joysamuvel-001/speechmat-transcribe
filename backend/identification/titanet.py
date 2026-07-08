@@ -9,6 +9,7 @@ match across server restarts.
 import numpy as np
 import torch
 import soundfile as sf
+import os
 
 _model = None
 
@@ -85,3 +86,41 @@ def get_embedding(wav_path: str) -> np.ndarray:
         emb_np = emb_np / norm
 
     return emb_np
+
+
+def get_embedding_windowed(wav_path: str, window_sec: float = 3.0, hop_sec: float = 1.5) -> np.ndarray:
+    """
+    For segments longer than one window, extract embeddings from overlapping
+    windows and average them (then re-normalise). More robust than a single
+    embedding over a long, possibly non-uniform segment.
+    """
+    import soundfile as sf
+    audio, sr = sf.read(wav_path)
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    duration = len(audio) / sr
+
+    if duration <= window_sec:
+        return get_embedding(wav_path)  # unchanged path for short clips
+
+    embeddings = []
+    start = 0.0
+    while start < duration:
+        end = min(start + window_sec, duration)
+        if end - start < 1.0:  # trailing sliver too short, skip
+            break
+        chunk = audio[int(start * sr):int(end * sr)]
+        tmp_path = wav_path + f".win_{start:.1f}.wav"
+        sf.write(tmp_path, chunk, sr)
+        try:
+            embeddings.append(get_embedding(tmp_path))
+        finally:
+            os.remove(tmp_path)
+        start += hop_sec
+
+    if not embeddings:
+        return get_embedding(wav_path)
+
+    avg = np.mean(embeddings, axis=0)
+    norm = np.linalg.norm(avg)
+    return avg / norm if norm > 1e-9 else avg

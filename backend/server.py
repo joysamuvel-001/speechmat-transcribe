@@ -12,6 +12,7 @@ from correction.medgemma import correct_transcript
 from audio_utils.converter import convert_to_wav
 from diarization.model import run_diarization
 from diarization.speaker import process_diarization
+from identification.titanet import get_embedding_windowed  # add this import
 from transcription.asr import transcribe_segments
 from identification.registry import (
     enroll_speaker, identify_speaker,
@@ -148,7 +149,7 @@ def _identify_segments(wav_path: str, segments: list, tmp_dir: str) -> list:
 
         seg["diarized_as"] = diarized_label
 
-        if duration < 1.0:
+        if duration < 1.2:
             # Too short — keep Sortformer label, mark as not identified
             seg["similarity"] = 0.0
             seg["identified"] = False
@@ -170,12 +171,22 @@ def _identify_segments(wav_path: str, segments: list, tmp_dir: str) -> list:
     return segments
 
 def _smooth_short_unknowns(segments: list, max_short_duration: float = 2.5, max_gap: float = 2.0) -> list:
-    """
-    Short segments give unreliable TitaNet embeddings on their own.
-    If a short/unidentified segment is sandwiched between two confidently
-    identified turns from the SAME speaker, with small gaps, assume it's
-    that speaker too — neighbor context beats a shaky standalone embedding.
-    """
+    if len(segments) < 2:
+        return segments
+
+    # ── Edge case: first segment ──
+    first = segments[0]
+    duration = first["end"] - first["start"]
+    if not first.get("identified") and duration <= max_short_duration:
+        nxt = segments[1]
+        gap = nxt["start"] - first["end"]
+        if nxt.get("identified") and gap <= max_gap:
+            print(f"[server] Smoothing first segment '{first['speaker']}' ({duration:.1f}s) -> '{nxt['speaker']}' via next-only")
+            first["speaker"]    = nxt["speaker"]
+            first["identified"] = True
+            first["smoothed"]   = True
+
+    # ── Middle segments (unchanged) ──
     for i in range(1, len(segments) - 1):
         seg = segments[i]
         duration = seg["end"] - seg["start"]
@@ -192,6 +203,18 @@ def _smooth_short_unknowns(segments: list, max_short_duration: float = 2.5, max_
                 seg["speaker"]    = prev_seg["speaker"]
                 seg["identified"] = True
                 seg["smoothed"]   = True
+
+    # ── Edge case: last segment ──
+    last = segments[-1]
+    duration = last["end"] - last["start"]
+    if not last.get("identified") and duration <= max_short_duration:
+        prev = segments[-2]
+        gap = last["start"] - prev["end"]
+        if prev.get("identified") and gap <= max_gap:
+            print(f"[server] Smoothing last segment '{last['speaker']}' ({duration:.1f}s) -> '{prev['speaker']}' via prev-only")
+            last["speaker"]    = prev["speaker"]
+            last["identified"] = True
+            last["smoothed"]   = True
 
     return segments
 

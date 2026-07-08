@@ -1,4 +1,6 @@
 
+SAME_SPEAKER_MERGE_GAP = 1.2
+
 def process_diarization(raw_segments: list) -> list:
     if not raw_segments:
         return []
@@ -35,7 +37,7 @@ def process_diarization(raw_segments: list) -> list:
 
         if cleaned and cleaned[-1]["speaker"] == label:
             gap = start - cleaned[-1]["end"]
-            if gap < 0.4:
+            if gap < SAME_SPEAKER_MERGE_GAP:
                 cleaned[-1]["end"] = max(cleaned[-1]["end"], end)
                 continue
 

@@ -84,13 +84,25 @@ def _get_pipeline():
     torch.load = _patched_load
     try:
         _pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            token=HF_TOKEN
+        "pyannote/speaker-diarization-3.1",
+        use_auth_token=HF_TOKEN   # not token= — that's the 4.0 API
         )
     finally:
         torch.load = _orig_load
 
     _pipeline.to(torch.device(DEVICE))
+
+    # ── Tuning: reduce false speaker-splits on consultation audio ──────────
+    _pipeline.instantiate({
+        "segmentation": {
+            "min_duration_off": 0.6,   # merge pauses shorter than this instead of splitting
+        },
+        "clustering": {
+            "threshold": 0.75,         # stricter than default 0.7 — fewer spurious new speakers
+        },
+    })
+    # ─────────────────────────────────────────────────────────────────────
+
     print(f"[diarization] pyannote ready on {DEVICE}.")
     return _pipeline
 
@@ -117,11 +129,9 @@ def run_diarization(wav_path: str) -> list:
 
     diarization = pipeline(audio_input)
 
-# DiarizeOutput wraps the actual annotation in .speaker_diarization
-    annotation = diarization.speaker_diarization
-
+    # 3.3.2 returns the Annotation directly — no .speaker_diarization wrapper
     segments = []
-    for turn, _, speaker_label in annotation.itertracks(yield_label=True):
+    for turn, _, speaker_label in diarization.itertracks(yield_label=True):
         segments.append({
             "speaker": speaker_label,
             "start":   round(turn.start, 3),
