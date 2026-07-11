@@ -1,5 +1,7 @@
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import shutil
+import socket
 import tempfile
 import uuid
 import torch
@@ -282,6 +284,28 @@ def merge_by_identity(segments: list, max_gap: float = 1.5) -> list:
     return merged
 
 
+def _get_available_port(preferred_port: int = 8000) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind(("0.0.0.0", preferred_port))
+            return preferred_port
+        except OSError:
+            pass
+
+    for port in range(preferred_port + 1, preferred_port + 100):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind(("0.0.0.0", port))
+                return port
+            except OSError:
+                continue
+
+    raise RuntimeError(f"No available port found near {preferred_port}")
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    port = _get_available_port(8000)
+    print(f"[server] Starting on http://0.0.0.0:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)

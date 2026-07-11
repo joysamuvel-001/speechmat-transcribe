@@ -6,8 +6,6 @@ import torch
 import numpy as np
 from scipy.io import wavfile
 
-import nemo.collections.asr as nemo_asr
-
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -19,27 +17,36 @@ LOCAL_MODEL_PATH = os.environ.get("LOCAL_MODEL_PATH") or DEFAULT_LOCAL_PATH
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ---------------------------------------------------------------------------
-# Model load (once at startup)
+# Lazy model load
 # ---------------------------------------------------------------------------
 
-print("[asr] Loading ASR model…")
-if os.path.exists(LOCAL_MODEL_PATH):
-    print(f"[asr] Restoring from local checkpoint: {LOCAL_MODEL_PATH}")
-    _asr_model = nemo_asr.models.ASRModel.restore_from(LOCAL_MODEL_PATH)
-else:
-    print(f"[asr] Local checkpoint not found — downloading {MODEL_NAME}")
-    _asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name=MODEL_NAME)
+_asr_model = None
 
-_asr_model.eval()
-if DEVICE == "cuda":
-    _asr_model = _asr_model.cuda()
-    print(f"[asr] Running on GPU: {torch.cuda.get_device_name(0)}")
-else:
-    print("[asr] No GPU detected — running on CPU (slower).")
 
-# Widen attention context for best accuracy this model supports.
-# [70, 13] is the highest-context option among this checkpoint's
-# trained look-aheads (confirmed via NeMo's own supported-list warning).
+def _load_model():
+    global _asr_model
+    if _asr_model is not None:
+        return _asr_model
+
+    print("[asr] Loading ASR model…")
+    import nemo.collections.asr as nemo_asr
+
+    if os.path.exists(LOCAL_MODEL_PATH):
+        print(f"[asr] Restoring from local checkpoint: {LOCAL_MODEL_PATH}")
+        model = nemo_asr.models.ASRModel.restore_from(LOCAL_MODEL_PATH)
+    else:
+        print(f"[asr] Local checkpoint not found — downloading {MODEL_NAME}")
+        model = nemo_asr.models.ASRModel.from_pretrained(model_name=MODEL_NAME)
+
+    model.eval()
+    if DEVICE == "cuda":
+        model = model.cuda()
+        print(f"[asr] Running on GPU: {torch.cuda.get_device_name(0)}")
+    else:
+        print("[asr] No GPU detected — running on CPU (slower).")
+
+    _asr_model = model
+    return _asr_model
 
 
 # ---------------------------------------------------------------------------
@@ -131,9 +138,11 @@ def transcribe_segments(
 
     segment_paths = [p for (_, p) in chunk_plan]
 
+    model = _load_model()
+
     # Batched ASR inference
     with torch.no_grad():
-        outputs = _asr_model.transcribe(segment_paths)
+        outputs = model.transcribe(segment_paths)
 
     # Re-assemble: join all chunk texts belonging to the same original segment
     texts_by_segment = {}

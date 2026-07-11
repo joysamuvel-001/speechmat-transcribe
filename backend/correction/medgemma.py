@@ -34,7 +34,7 @@ STATUS_URL_TPL   = f"{BASE_URL}/status/{{job_id}}"
 CANCEL_URL_TPL   = f"{BASE_URL}/cancel/{{job_id}}"
 
 POLL_INTERVAL    = 2      # seconds between status polls
-MAX_WAIT_SECONDS = 300    # 5 minutes before giving up
+MAX_WAIT_SECONDS = 200   # 5 minutes before giving up
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging helpers

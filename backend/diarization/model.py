@@ -93,14 +93,14 @@ def _get_pipeline():
     _pipeline.to(torch.device(DEVICE))
 
     # ── Tuning: reduce false speaker-splits on consultation audio ──────────
-    _pipeline.instantiate({
-        "segmentation": {
-            "min_duration_off": 0.6,   # merge pauses shorter than this instead of splitting
-        },
-        "clustering": {
-            "threshold": 0.75,         # stricter than default 0.7 — fewer spurious new speakers
-        },
-    })
+    # _pipeline.instantiate({
+    #     "segmentation": {
+    #         "min_duration_off": 0.6,   # merge pauses shorter than this instead of splitting
+    #     },
+    #     "clustering": {
+    #         "threshold": 0.75,         # stricter than default 0.7 — fewer spurious new speakers
+    #     },
+    # })
     # ─────────────────────────────────────────────────────────────────────
 
     print(f"[diarization] pyannote ready on {DEVICE}.")
