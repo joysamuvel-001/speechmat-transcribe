@@ -10,6 +10,75 @@
 import { useState, useRef } from "react";
 import styles               from "./Sidebar.module.css";
 
+const LANGUAGES = [
+  { code: "auto", name: "Auto Detect" },
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "it", name: "Italian" },
+  { code: "pt", name: "Portuguese" },
+  { code: "zh", name: "Chinese (Mandarin)" },
+  { code: "ja", name: "Japanese" },
+  { code: "ko", name: "Korean" },
+  { code: "hi", name: "Hindi" },
+  { code: "ar", name: "Arabic" },
+  { code: "hy", name: "Armenian" },
+  { code: "eu", name: "Basque" },
+  { code: "be", name: "Belarusian" },
+  { code: "bn", name: "Bengali" },
+  { code: "bg", name: "Bulgarian" },
+  { code: "ca", name: "Catalan" },
+  { code: "hr", name: "Croatian" },
+  { code: "cs", name: "Czech" },
+  { code: "da", name: "Danish" },
+  { code: "nl", name: "Dutch" },
+  { code: "eo", name: "Esperanto" },
+  { code: "et", name: "Estonian" },
+  { code: "fi", name: "Finnish" },
+  { code: "gl", name: "Galician" },
+  { code: "ka", name: "Georgian" },
+  { code: "el", name: "Greek" },
+  { code: "gu", name: "Gujarati" },
+  { code: "he", name: "Hebrew" },
+  { code: "hu", name: "Hungarian" },
+  { code: "is", name: "Icelandic" },
+  { code: "id", name: "Indonesian" },
+  { code: "ga", name: "Irish" },
+  { code: "kn", name: "Kannada" },
+  { code: "kk", name: "Kazakh" },
+  { code: "lv", name: "Latvian" },
+  { code: "lt", name: "Lithuanian" },
+  { code: "mk", name: "Macedonian" },
+  { code: "ms", name: "Malay" },
+  { code: "ml", name: "Malayalam" },
+  { code: "mt", name: "Maltese" },
+  { code: "mr", name: "Marathi" },
+  { code: "mn", name: "Mongolian" },
+  { code: "ne", name: "Nepali" },
+  { code: "no", name: "Norwegian" },
+  { code: "fa", name: "Persian" },
+  { code: "pl", name: "Polish" },
+  { code: "pa", name: "Punjabi" },
+  { code: "ro", name: "Romanian" },
+  { code: "ru", name: "Russian" },
+  { code: "sr", name: "Serbian" },
+  { code: "sk", name: "Slovak" },
+  { code: "sl", name: "Slovenian" },
+  { code: "so", name: "Somali" },
+  { code: "sw", name: "Swahili" },
+  { code: "sv", name: "Swedish" },
+  { code: "tl", name: "Tagalog" },
+  { code: "ta", name: "Tamil" },
+  { code: "te", name: "Telugu" },
+  { code: "th", name: "Thai" },
+  { code: "tr", name: "Turkish" },
+  { code: "uk", name: "Ukrainian" },
+  { code: "ur", name: "Urdu" },
+  { code: "vi", name: "Vietnamese" },
+  { code: "cy", name: "Welsh" },
+];
+
 export function Sidebar({
   recording, elapsed, processing,
   onStart, onStop, onCancel, onRetryVoice, onNewSession,
@@ -20,6 +89,8 @@ export function Sidebar({
   onEnroll,
   numSpeakers,
   onNumSpeakersChange,
+  language,
+  onLanguageChange,
 }) {
   const [speakerName,     setSpeakerName]     = useState("");
   const [enrollRecording, setEnrollRecording] = useState(false);
@@ -138,6 +209,23 @@ export function Sidebar({
             <option value="3">3 Speakers</option>
             <option value="4">4 Speakers</option>
             <option value="5">5 Speakers</option>
+          </select>
+        </div>
+
+        <div className={styles.speakersSelectRow}>
+          <label htmlFor="language" className={styles.selectLabel}>Language</label>
+          <select
+            id="language"
+            className={styles.selectInput}
+            value={language}
+            onChange={(e) => onLanguageChange(e.target.value)}
+            disabled={recording || processing}
+          >
+            {LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.name}
+              </option>
+            ))}
           </select>
         </div>
 

@@ -48,7 +48,7 @@ def enroll_speaker(name: str, wav_path: str) -> dict:
 
     np.save(save_path, new_emb)
     total = idx + 1
-    print(f"[registry] Enrolled '{name}' sample {total} → {save_path}")
+    print(f"[registry] Enrolled '{name}' sample {total} -> {save_path}")
 
     MIN_RECOMMENDED_SAMPLES = 3
 

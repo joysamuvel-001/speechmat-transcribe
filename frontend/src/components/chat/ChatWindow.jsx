@@ -19,7 +19,7 @@ const colorCache = {};
 let colorIdx = 0;
 
 function isRawLabel(name) {
-  return !name || name === "Unknown" || /^[Ss]peaker_?\d+$/i.test(name);
+  return !name || name === "Unknown" || /^[Ss]peaker[_\s]?\d+$/i.test(name);
 }
 
 function isMissing(name) {

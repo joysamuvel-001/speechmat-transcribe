@@ -22,22 +22,28 @@ export default function VoiceTranscriber() {
   const [enrolledSpeakers, setEnrolledSpeakers]  = useState([]);
   const [enrollStatus,     setEnrollStatus]       = useState(null);
   const [numSpeakers,      setNumSpeakers]       = useState("auto");
+  const [language,         setLanguage]          = useState("auto");
   
   const sessionCountRef = useRef(0);
   const prevSessionsRef = useRef([]);
   const numSpeakersRef  = useRef("auto");
+  const languageRef     = useRef("auto");
 
   // Keep ref in sync
   useEffect(() => {
     numSpeakersRef.current = numSpeakers;
   }, [numSpeakers]);
 
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+
   // ── Transcription ──────────────────────────────────────────────────────────
   const handleBlob = useCallback(async (blob) => {
     setProcessing(true);
     setError(null);
     try {
-      const data = await transcribeAudio(blob, numSpeakersRef.current);
+      const data = await transcribeAudio(blob, numSpeakersRef.current, languageRef.current);
       if (!data.conversation?.length) {
         setError("No speech detected. Speak clearly and try again.");
       } else {
@@ -123,6 +129,8 @@ export default function VoiceTranscriber() {
         onEnroll={handleEnroll}
         numSpeakers={numSpeakers}
         onNumSpeakersChange={setNumSpeakers}
+        language={language}
+        onLanguageChange={setLanguage}
       />
       <ChatWindow
         sessions={sessions}           // pass sessions, not flat conversation

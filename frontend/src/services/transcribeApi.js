@@ -6,11 +6,14 @@ const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
  * Transcribe a recorded audio blob.
  * Returns { text, conversation: [{speaker, diarized_as, similarity, text, start, end}] }
  */
-export async function transcribeAudio(blob, numSpeakers) {
+export async function transcribeAudio(blob, numSpeakers, language) {
   const form = new FormData();
   form.append("audio", blob, "recording.webm");
   if (numSpeakers && numSpeakers !== "auto") {
     form.append("num_speakers", numSpeakers);
+  }
+  if (language) {
+    form.append("language", language);
   }
 
   const res = await fetch(`${BASE}/api/transcribe`, {

@@ -68,7 +68,7 @@ def convert_to_wav(audio_bytes: bytes, output_path: str) -> None:
         wavfile.write(output_path, 16000, audio_np)
 
         duration = len(audio_np) / 16000
-        print(f"[converter] wrote {len(audio_np)} samples ({duration:.2f}s) → {output_path}")
+        print(f"[converter] wrote {len(audio_np)} samples ({duration:.2f}s) -> {output_path}")
 
     finally:
         if os.path.exists(tmp_input):

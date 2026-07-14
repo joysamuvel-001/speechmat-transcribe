@@ -10,12 +10,8 @@ from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from correction.medgemma import correct_transcript
 from audio_utils.converter import convert_to_wav
-from diarization.model import run_diarization
-from diarization.speaker import process_diarization
 from identification.titanet import get_embedding_windowed 
-from transcription.asr import transcribe_segments
 from identification.registry import (
     enroll_speaker, identify_speaker,
     identify_cluster_embedding,
@@ -61,59 +57,86 @@ async def remove_speaker(name: str):
 async def transcribe(
     audio: UploadFile = File(...),
     ground_truth_diarization: str = Form(None),
-    num_speakers: int = Form(None)
+    num_speakers: int = Form(None),
+    language: str = Form("en")
 ):
     """
     Pipeline:
-      1. Convert WebM → 16kHz mono WAV
-      2. Sortformer diarization  →  raw SPEAKER_xx segments (or use manual ground truth)
-      3. process_diarization     →  merge close same-speaker segments (no renaming)
-      4. TitaNet identification  →  replace SPEAKER_xx with real name if enrolled
-      5. merge_by_identity       →  merge consecutive same-person turns (with gap guard)
-      6. Nemotron ASR            →  transcribe each turn
+      1. Convert WebM -> 16kHz mono WAV
+      2. Run Speechmatics batch-wise transcription & diarization (using selected language)
+      3. Run TitaNet speaker identification to map Speaker 1/2 to enrolled profiles
+      4. Smooth and merge segments
     """
     tmp_dir  = tempfile.mkdtemp()
     wav_path = f"{tmp_dir}/{uuid.uuid4()}.wav"
     try:
         audio_bytes = await audio.read()
-        print(f"[server] received {len(audio_bytes)} bytes")
+        print(f"\n[server] === NEW TRANSCRIBE REQUEST RECEIVED ===")
+        print(f"[server] Audio file payload size: {len(audio_bytes)} bytes")
+        print(f"[server] Target language select: '{language}'")
+        print(f"[server] Target num_speakers select: {num_speakers}")
 
+        print(f"[server] Converting input audio bytes to 16kHz mono WAV format...")
         convert_to_wav(audio_bytes, wav_path)
+        print(f"[server] Audio conversion complete. Saved temporary WAV to: {wav_path}")
 
-        if ground_truth_diarization:
-            import json
-            raw_segments = json.loads(ground_truth_diarization)
-            labeled_segments = process_diarization(raw_segments)
-            print(f"[server] Using ground-truth diarization with {len(labeled_segments)} segments")
-        else:
-            raw_segments    = run_diarization(wav_path, num_speakers=num_speakers)
-            labeled_segments = process_diarization(raw_segments)
-
-        print(f"[server] {len(labeled_segments)} segments after diarization")
-
-        labeled_segments = _identify_segments(wav_path, labeled_segments, tmp_dir)
-        labeled_segments = label_smoothing(labeled_segments)
-        labeled_segments = merge_by_identity(labeled_segments)
-
-        print(f"[server] {len(labeled_segments)} segments after identity merge")
-
-        conversation = transcribe_segments(wav_path, labeled_segments, tmp_dir)
-
-        # Correction is best-effort: a RunPod failure must never lose a
-        # transcript that diarization + ASR already produced.
+        # --- Speechmatics Pipeline Integration (Pauses: PyAnnote, TitaNet, Omi Med STT, MedGemma) ---
+        from speechmatics_pipeline import run_speechmatics_pipeline, parse_speechmatics_results
+        print(f"[server] Delegating transcription & diarization to Speechmatics batch service...")
+        speechmatics_res = await run_speechmatics_pipeline(wav_path, num_speakers=num_speakers, language=language)
+        
+        results = speechmatics_res.get("results", [])
+        print(f"[server] Speechmatics returned raw response. Parsing {len(results)} elements into speaker turns...")
+        conversation = parse_speechmatics_results(results)
+        
+        print(f"[server] Performing TitaNet speaker identification on parsed dialogue turns...")
+        conversation = _identify_segments(wav_path, conversation, tmp_dir)
+        print(f"[server] Speaker identification complete. Performing label smoothing...")
+        conversation = label_smoothing(conversation)
+        print(f"[server] Label smoothing complete. Merging consecutive same-speaker turns...")
+        conversation = merge_by_identity(conversation)
+        print(f"[server] Post-processing and merging complete. Total final turns: {len(conversation)}")
+        
         correction_applied = False
-        if conversation:
-            print(f"[server] Sending {len(conversation)} turns to MedGemma (single request)")
-            try:
-                conversation = correct_transcript(conversation)["corrected_conversation"]
-                correction_applied = True
-                print(f"[server] MedGemma correction complete — {len(conversation)} turns returned")
-            except Exception as corr_exc:
-                print(f"[server] MedGemma correction failed ({corr_exc}) — returning uncorrected transcript")
-        else:
-            print("[server] No speech detected — skipping MedGemma correction")
-
         full_text = " ".join(t["text"] for t in conversation)
+        print(f"[server] Returning final transcription payload to client. Character count: {len(full_text)}")
+        print(f"[server] === TRANSCRIBE REQUEST PROCESS COMPLETED ===\n")
+
+        # --- (Paused Old Pipeline) ---
+        # if ground_truth_diarization:
+        #     import json
+        #     raw_segments = json.loads(ground_truth_diarization)
+        #     labeled_segments = process_diarization(raw_segments)
+        #     print(f"[server] Using ground-truth diarization with {len(labeled_segments)} segments")
+        # else:
+        #     raw_segments    = run_diarization(wav_path, num_speakers=num_speakers)
+        #     labeled_segments = process_diarization(raw_segments)
+        #
+        # print(f"[server] {len(labeled_segments)} segments after diarization")
+        #
+        # labeled_segments = _identify_segments(wav_path, labeled_segments, tmp_dir)
+        # labeled_segments = label_smoothing(labeled_segments)
+        # labeled_segments = merge_by_identity(labeled_segments)
+        #
+        # print(f"[server] {len(labeled_segments)} segments after identity merge")
+        #
+        # conversation = transcribe_segments(wav_path, labeled_segments, tmp_dir)
+        #
+        # # Correction is best-effort: a RunPod failure must never lose a
+        # # transcript that diarization + ASR already produced.
+        # correction_applied = False
+        # if conversation:
+        #     print(f"[server] Sending {len(conversation)} turns to MedGemma (single request)")
+        #     try:
+        #         conversation = correct_transcript(conversation)["corrected_conversation"]
+        #         correction_applied = True
+        #         print(f"[server] MedGemma correction complete — {len(conversation)} turns returned")
+        #     except Exception as corr_exc:
+        #         print(f"[server] MedGemma correction failed ({corr_exc}) — returning uncorrected transcript")
+        # else:
+        #     print("[server] No speech detected — skipping MedGemma correction")
+        #
+        # full_text = " ".join(t["text"] for t in conversation)
 
         return {
             "text":               full_text,

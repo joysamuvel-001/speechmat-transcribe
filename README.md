@@ -1,14 +1,15 @@
 # MedTranscribe
 
-Medical consultation transcription system with speaker diarization, speaker identification, and AI-powered medical terminology correction.
+Medical consultation transcription system with Speechmatics Batch transcription & diarization, TitaNet local speaker identification, and a React frontend.
 
 ## What it does
 
 Records doctor-patient consultations and produces a structured transcript with:
-- Per-speaker turns (identified by name if enrolled, otherwise "Unknown")
-- Accurate medical terminology corrected by an LLM
+- Per-speaker turns (identified by name if enrolled via TitaNet, otherwise "Speaker N" / "not enrolled")
+- Speechmatics high-accuracy transcription (supporting 65 languages including Tamil, English, Arabic, Spanish, etc.)
+- Auto-detection or explicit manual language selection
 - Timestamps per turn
-- TitaNet identity confidence score per speaker
+- Cosine similarity matching vs enrolled speaker voice signatures
 
 ## Architecture
 
@@ -17,15 +18,10 @@ Browser audio (WebM/Opus)
         ↓
 audio_utils/converter.py       Convert to 16kHz mono WAV
         ↓
-diarization/model.py           pyannote/speaker-diarization-3.1
-diarization/speaker.py         Merge close same-speaker segments
+speechmatics_pipeline.py       Speechmatics Batch API (enhanced ASR & diarization)
         ↓
-identification/titanet.py      TitaNet Large speaker embeddings
+identification/titanet.py      TitaNet Large speaker embeddings on speaker turns
 identification/registry.py     Cosine similarity vs enrolled speakers
-        ↓
-transcription/asr.py           Omi Med STT v1 (medical ASR)
-        ↓
-correction/medgemma.py         LLM medical terminology correction
         ↓
 Frontend (React + Vite)        Chat-style UI with speaker bubbles
 ```
@@ -39,22 +35,13 @@ medtranscribe/
 │   ├── audio_utils/
 │   │   ├── __init__.py
 │   │   └── converter.py               WebM → 16kHz mono WAV
-│   ├── correction/
-│   │   ├── __init__.py
-│   │   └── medgemma.py                LLM correction (Gemini API)
-│   ├── diarization/
-│   │   ├── __init__.py
-│   │   ├── model.py                   pyannote diarization pipeline
-│   │   └── speaker.py                 Segment parsing and merging
 │   ├── identification/
 │   │   ├── __init__.py
 │   │   ├── titanet.py                 TitaNet Large embedding extractor
 │   │   └── registry.py                Enrollment store + cosine matching
-│   ├── transcription/
-│   │   ├── __init__.py
-│   │   └── asr.py                     Omi Med STT inference
+│   ├── speechmatics_pipeline.py       Speechmatics batch request wrapper
 │   ├── model_cache/
-│   │   └── omi-med-stt-v1.nemo        Downloaded manually (see Setup)
+│   │   └── speakerverification_en_titanet_large.nemo (automatic download)
 │   ├── enrolled_speakers/             Auto-created on first enrollment
 │   ├── .env                           API keys and config (never commit)
 │   └── requirements.txt
@@ -83,9 +70,8 @@ medtranscribe/
 ## Requirements
 
 ### Hardware
-- CPU-only supported (slower — expect 10-30s per transcription)
-- GPU strongly recommended for production use (NVIDIA CUDA 12.4+)
-- Minimum 8GB RAM (16GB recommended when running all models together)
+- GPU recommended but CPU-only is fully supported for TitaNet speaker verification embeddings extraction.
+- Minimum 8GB RAM.
 
 ### Software
 - Python 3.10
@@ -121,55 +107,20 @@ cd backend
 pip install -r requirements.txt
 ```
 
-### 4. Download Omi Med STT model
-
-The model must be downloaded manually due to a NeMo extraction bug with `from_pretrained()`.
-
-```bash
-# Login to HuggingFace (free account required)
-huggingface-cli login
-
-# Download via Python
-python -c "
-from huggingface_hub import snapshot_download
-snapshot_download('omi-health/omi-med-stt-v1', local_dir='./omi_tmp')
-"
-
-# Copy the .nemo file to model_cache/
-# On Windows:
-copy omi_tmp\omimedstt-v1.nemo model_cache\omi-med-stt-v1.nemo
-
-# On Linux/Mac:
-cp omi_tmp/omimedstt-v1.nemo model_cache/omi-med-stt-v1.nemo
-```
-
-### 5. Accept gated model licenses on HuggingFace
-
-Both of these require accepting a license on the HuggingFace website before they can be downloaded:
-
-- pyannote diarization: https://huggingface.co/pyannote/speaker-diarization-3.1
-- pyannote segmentation: https://huggingface.co/pyannote/segmentation-3.0
-
-### 6. Configure environment variables
+### 4. Configure environment variables
 
 Create `backend/.env`:
 
 ```env
-# HuggingFace token (required for pyannote gated models)
-HF_TOKEN=hf_your_token_here
-
-# LLM correction — get free key at https://aistudio.google.com
-GEMINI_API_KEY=your_gemini_key_here
-
-# Set to false to skip LLM correction (faster, less accurate)
-ENABLE_MEDGEMMA_CORRECTION=true
+# Speechmatics Batch API Key
+SPEECHMATICS_API_KEY=6jKHkAF86LxtOCYlMGgWIwliHqVHQBtk
 
 # TitaNet speaker identification threshold (0.0-1.0)
 # Lower = more lenient. Raise to 0.70+ after enrolling 3+ samples per person.
 TITANET_THRESHOLD=0.55
 ```
 
-### 7. Install frontend dependencies
+### 5. Install frontend dependencies
 
 ```bash
 cd frontend
@@ -186,7 +137,7 @@ cd backend
 python server.py
 ```
 
-Server starts at http://localhost:8000
+Server starts at http://localhost:8000 (Detailed terminal logs will print for every audio conversion, job upload, status polling attempt, and segment parser step).
 
 ### Frontend (Terminal 2)
 
@@ -195,13 +146,13 @@ cd frontend
 npm run dev
 ```
 
-UI available at http://localhost:5173
+UI available at http://localhost:5173 (or http://localhost:5174 if the port is busy)
 
 ## API endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /api/transcribe | Upload audio → full transcript |
+| POST | /api/transcribe | Upload audio → full Speechmatics transcript + TitaNet speaker match |
 | POST | /api/enroll | Register a speaker by name + voice sample |
 | GET | /api/speakers | List all enrolled speakers |
 | DELETE | /api/speakers/{name} | Remove an enrolled speaker |
@@ -210,39 +161,28 @@ UI available at http://localhost:5173
 ## Speaker enrollment
 
 For best identification accuracy:
-1. Enter the person's name in the sidebar
-2. Click "Record Sample" and speak naturally for 8-10 seconds
-3. Click "Stop & Enroll"
-4. Repeat 3-5 times with different sentences — each enrollment improves accuracy by averaging embeddings
+1. Enter the person's name in the sidebar.
+2. Click "Record Sample" and speak naturally for 8-10 seconds.
+3. Click "Stop & Enroll".
+4. Repeat 3-5 times with different sentences — each enrollment improves accuracy by averaging embeddings.
 
 The TitaNet threshold in `.env` controls how strict matching is. Start at 0.55 and raise to 0.70 once you have multiple samples per person.
 
 ## Models used
 
-| Model | Purpose | Size | Source |
+| Model / Service | Purpose | Size | Source |
 |-------|---------|------|--------|
-| Omi Med STT v1 | Medical speech-to-text | 2.5GB | omi-health/omi-med-stt-v1 |
-| pyannote/speaker-diarization-3.1 | Who spoke when | ~300MB | pyannote (gated) |
+| Speechmatics Batch API | Medical ASR & speaker diarization | Cloud API | Speechmatics SaaS |
 | TitaNet Large | Speaker identity matching | ~90MB | nvidia/speakerverification_en_titanet_large |
-| Gemini 2.5 Flash | Medical terminology correction | API | Google AI Studio (free) |
 
 ## Common issues
 
-**`CUDA is not available`** — Running on CPU. All models work on CPU but are slower. No action needed unless you need faster inference.
+**`Language identification could not identify any language`** — When selecting "Auto Detect" as the language, Speechmatics needs at least 60 seconds of audio to identify the language with high confidence. For shorter clips, please select the specific language directly from the dropdown (e.g. English, Tamil).
 
-**`HF_TOKEN` error on startup** — Add your HuggingFace token to `.env`. Get one at https://huggingface.co/settings/tokens.
+**`CUDA is not available`** — Running on CPU. TitaNet works on CPU but is slower. No action needed unless you need faster GPU embedding extraction.
 
-**`model_config.yaml not found`** — The Omi Med STT model was not extracted correctly. Follow the manual download steps in Setup section 4.
-
-**`torchvision::nms does not exist`** — torch and torchvision version mismatch. Reinstall both together: `pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124`
-
-**Speaker always shows "Unknown"** — TitaNet score is below threshold. Enroll the speaker with more samples (3-5 recordings), or lower `TITANET_THRESHOLD` in `.env`.
-
-**pyannote not separating speakers** — Recording too short (under 5 seconds) or only one real voice present. Record at least 8-10 seconds with clear speaker turns.
+**`Speaker always shows "Speaker N"`** or **`not enrolled`** — The TitaNet similarity score is below the threshold or the speaker profile has not been enrolled. Enroll the speaker with 3-5 recordings, or lower `TITANET_THRESHOLD` in `.env`.
 
 ## Notes
 
-- All audio processing is local — only the LLM correction step sends text to Google's API
-- Enrolled speaker embeddings are stored as `.npy` files in `enrolled_speakers/` — back these up
-- The correction step is best-effort — if the API is unavailable, the raw ASR transcript is returned unchanged
-- "Loose motions", "gas problem", "acidity" are preserved as-is (valid Indian medical English)
+- Enrolled speaker embeddings are stored locally as `.npy` files in `backend/enrolled_speakers/`.
