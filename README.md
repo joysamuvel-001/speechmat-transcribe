@@ -113,7 +113,6 @@ Create `backend/.env`:
 
 ```env
 # Speechmatics Batch API Key
-SPEECHMATICS_API_KEY=6jKHkAF86LxtOCYlMGgWIwliHqVHQBtk
 
 # TitaNet speaker identification threshold (0.0-1.0)
 # Lower = more lenient. Raise to 0.70+ after enrolling 3+ samples per person.
