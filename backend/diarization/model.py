@@ -111,7 +111,7 @@ def _get_pipeline():
 
     # ── Tuning: reduce false speaker-splits on consultation audio ──────────
     clustering_threshold = float(os.environ.get("PYANNOTE_CLUSTERING_THRESHOLD", "0.65"))
-    min_duration_off = float(os.environ.get("PYANNOTE_MIN_DURATION_OFF", "0.6"))
+    min_duration_off = float(os.environ.get("PYANNOTE_MIN_DURATION_OFF", "0.097"))
 
     print(f"[diarization] Instantiating pyannote with clustering_threshold={clustering_threshold}, min_duration_off={min_duration_off}")
     _pipeline.instantiate({
@@ -281,7 +281,7 @@ def separate_overlap(wav_path: str, start: float, end: float, tmp_dir: str) -> t
         return None, None
 
 
-def run_diarization(wav_path: str) -> list:
+def run_diarization(wav_path: str, num_speakers: int = None) -> list:
     """
     Run Silero VAD + pyannote diarization on a 16kHz mono WAV file.
     Returns list of dicts:
@@ -305,7 +305,10 @@ def run_diarization(wav_path: str) -> list:
     tensor = torch.from_numpy(audio_float).unsqueeze(0)
     audio_input = {"waveform": tensor, "sample_rate": sample_rate}
 
-    diarization = pipeline(audio_input)
+    kwargs = {}
+    if num_speakers is not None and num_speakers >= 1:
+        kwargs["num_speakers"] = num_speakers
+    diarization = pipeline(audio_input, **kwargs)
 
     raw_segments = []
     for turn, _, speaker_label in diarization.itertracks(yield_label=True):

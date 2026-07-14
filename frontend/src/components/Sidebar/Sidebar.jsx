@@ -18,6 +18,8 @@ export function Sidebar({
   enrolledSpeakers,
   enrollStatus,
   onEnroll,
+  numSpeakers,
+  onNumSpeakersChange,
 }) {
   const [speakerName,     setSpeakerName]     = useState("");
   const [enrollRecording, setEnrollRecording] = useState(false);
@@ -120,6 +122,24 @@ export function Sidebar({
       {/* ── Recording ── */}
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Recording</h3>
+
+        <div className={styles.speakersSelectRow}>
+          <label htmlFor="num-speakers" className={styles.selectLabel}>Number of Speakers</label>
+          <select
+            id="num-speakers"
+            className={styles.selectInput}
+            value={numSpeakers}
+            onChange={(e) => onNumSpeakersChange(e.target.value)}
+            disabled={recording || processing}
+          >
+            <option value="auto">Auto Detect</option>
+            <option value="1">1 Speaker</option>
+            <option value="2">2 Speakers</option>
+            <option value="3">3 Speakers</option>
+            <option value="4">4 Speakers</option>
+            <option value="5">5 Speakers</option>
+          </select>
+        </div>
 
         <div className={styles.micWrap}>
           {/* Timer shown above mic while recording */}

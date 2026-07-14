@@ -60,7 +60,8 @@ async def remove_speaker(name: str):
 @app.post("/api/transcribe")
 async def transcribe(
     audio: UploadFile = File(...),
-    ground_truth_diarization: str = Form(None)
+    ground_truth_diarization: str = Form(None),
+    num_speakers: int = Form(None)
 ):
     """
     Pipeline:
@@ -85,7 +86,7 @@ async def transcribe(
             labeled_segments = process_diarization(raw_segments)
             print(f"[server] Using ground-truth diarization with {len(labeled_segments)} segments")
         else:
-            raw_segments    = run_diarization(wav_path)
+            raw_segments    = run_diarization(wav_path, num_speakers=num_speakers)
             labeled_segments = process_diarization(raw_segments)
 
         print(f"[server] {len(labeled_segments)} segments after diarization")
@@ -218,6 +219,22 @@ def _identify_segments(wav_path: str, segments: list, tmp_dir: str) -> list:
             "identified": identified
         }
         print(f"[server] Cluster '{diarized_label}' identified as '{result['name']}' (score: {result.get('score', 0.0):.3f}, identified: {identified})")
+
+    # Conflict Resolution: Ensure each enrolled speaker is mapped to at most one cluster.
+    assigned_groups = {}  # maps enrolled_name -> list of (diarized_label, score)
+    for diarized_label, id_info in cluster_identities.items():
+        if id_info["identified"]:
+            assigned_groups.setdefault(id_info["name"], []).append((diarized_label, id_info["score"]))
+
+    for enrolled_name, candidates in assigned_groups.items():
+        if len(candidates) > 1:
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            best_label = candidates[0][0]
+            print(f"[server] Conflict for '{enrolled_name}': multiple clusters matched {candidates}. Keeping cluster '{best_label}'")
+            for label, score in candidates[1:]:
+                cluster_identities[label]["name"] = label
+                cluster_identities[label]["identified"] = False
+                cluster_identities[label]["score"] = 0.0
 
     # Step 5: Propagate cluster identities back to segments
     for seg in segments:

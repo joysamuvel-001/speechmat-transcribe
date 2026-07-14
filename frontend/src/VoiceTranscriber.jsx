@@ -6,7 +6,7 @@
  * So: Session 1 turns (sorted by start) → Session 2 turns (sorted by start) → ...
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRecorder }                    from "./hooks/useRecorder";
 import { transcribeAudio, enrollSpeaker } from "./services/transcribeApi";
 import { Sidebar }                        from "./components/Sidebar/Sidebar";
@@ -21,15 +21,23 @@ export default function VoiceTranscriber() {
   const [error,            setError]             = useState(null);
   const [enrolledSpeakers, setEnrolledSpeakers]  = useState([]);
   const [enrollStatus,     setEnrollStatus]       = useState(null);
+  const [numSpeakers,      setNumSpeakers]       = useState("auto");
+  
   const sessionCountRef = useRef(0);
   const prevSessionsRef = useRef([]);
+  const numSpeakersRef  = useRef("auto");
+
+  // Keep ref in sync
+  useEffect(() => {
+    numSpeakersRef.current = numSpeakers;
+  }, [numSpeakers]);
 
   // ── Transcription ──────────────────────────────────────────────────────────
   const handleBlob = useCallback(async (blob) => {
     setProcessing(true);
     setError(null);
     try {
-      const data = await transcribeAudio(blob);
+      const data = await transcribeAudio(blob, numSpeakersRef.current);
       if (!data.conversation?.length) {
         setError("No speech detected. Speak clearly and try again.");
       } else {
@@ -113,6 +121,8 @@ export default function VoiceTranscriber() {
         enrolledSpeakers={enrolledSpeakers}
         enrollStatus={enrollStatus}
         onEnroll={handleEnroll}
+        numSpeakers={numSpeakers}
+        onNumSpeakersChange={setNumSpeakers}
       />
       <ChatWindow
         sessions={sessions}           // pass sessions, not flat conversation

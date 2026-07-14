@@ -279,11 +279,19 @@ def align_conversations(original: list, corrected: list) -> list:
         original_label = turn["speaker"]
         mapped_speaker = speaker_map.get(original_label, original_label)
         
-        if mapped_speaker in ("Doctor", "Patient", "Unknown") and not matched_metadata:
-            # Fallback to the closest original speaker based on turn index ratio
-            orig_idx = int(turn_idx * len(original) / len(corrected))
-            orig_idx = min(orig_idx, len(original) - 1)
-            mapped_speaker = original[orig_idx]["speaker"]
+        if mapped_speaker in ("Doctor", "Patient", "Unknown"):
+            if matched_metadata:
+                matched_speakers = [m["speaker"] for m in matched_metadata if m.get("speaker")]
+                if matched_speakers:
+                    mapped_speaker = max(set(matched_speakers), key=matched_speakers.count)
+                else:
+                    orig_idx = int(turn_idx * len(original) / len(corrected))
+                    orig_idx = min(orig_idx, len(original) - 1)
+                    mapped_speaker = original[orig_idx]["speaker"]
+            else:
+                orig_idx = int(turn_idx * len(original) / len(corrected))
+                orig_idx = min(orig_idx, len(original) - 1)
+                mapped_speaker = original[orig_idx]["speaker"]
 
         if matched_metadata:
             start_time = min(m["time"] for m in matched_metadata)
