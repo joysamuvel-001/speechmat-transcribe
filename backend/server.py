@@ -65,7 +65,6 @@ async def transcribe(
       1. Convert WebM -> 16kHz mono WAV
       2. Run Speechmatics batch-wise transcription & diarization (using selected language)
       3. Run TitaNet speaker identification to map Speaker 1/2 to enrolled profiles
-      4. Smooth and merge segments
     """
     tmp_dir  = tempfile.mkdtemp()
     wav_path = f"{tmp_dir}/{uuid.uuid4()}.wav"
@@ -91,11 +90,7 @@ async def transcribe(
         
         print(f"[server] Performing TitaNet speaker identification on parsed dialogue turns...")
         conversation = _identify_segments(wav_path, conversation, tmp_dir)
-        print(f"[server] Speaker identification complete. Performing label smoothing...")
-        conversation = label_smoothing(conversation)
-        print(f"[server] Label smoothing complete. Merging consecutive same-speaker turns...")
-        conversation = merge_by_identity(conversation)
-        print(f"[server] Post-processing and merging complete. Total final turns: {len(conversation)}")
+        print(f"[server] Post-processing complete. Total final turns: {len(conversation)}")
         
         correction_applied = False
         full_text = " ".join(t["text"] for t in conversation)
@@ -115,10 +110,6 @@ async def transcribe(
         # print(f"[server] {len(labeled_segments)} segments after diarization")
         #
         # labeled_segments = _identify_segments(wav_path, labeled_segments, tmp_dir)
-        # labeled_segments = label_smoothing(labeled_segments)
-        # labeled_segments = merge_by_identity(labeled_segments)
-        #
-        # print(f"[server] {len(labeled_segments)} segments after identity merge")
         #
         # conversation = transcribe_segments(wav_path, labeled_segments, tmp_dir)
         #
@@ -270,70 +261,7 @@ def _identify_segments(wav_path: str, segments: list, tmp_dir: str) -> list:
     return segments
 
 
-def merge_by_identity(segments: list, max_gap: float = 1.5) -> list:
-    """
-    Merge consecutive segments where the SAME identified speaker continues.
 
-    Rules:
-      1. Only merge if speaker names match exactly
-      2. Only merge if the gap between segments is <= max_gap seconds
-         (prevents merging across long pauses — different thoughts/questions)
-      3. Never merge two SPEAKER_xx labels together unless they are identical
-         (i.e. Sortformer already said they're the same person)
-      4. Keep the highest similarity score when merging
-    """
-    if not segments:
-        return []
-
-    merged = [dict(segments[0])]
-
-    for seg in segments[1:]:
-        last = merged[-1]
-        gap  = seg["start"] - last["end"]
-
-        same_speaker = seg["speaker"] == last["speaker"]
-        gap_ok       = gap <= max_gap
-
-        if same_speaker and gap_ok:
-            last["end"]        = max(last["end"], seg["end"])
-            last["similarity"] = max(
-                last.get("similarity", 0.0),
-                seg.get("similarity", 0.0)
-            )
-        else:
-            merged.append(dict(seg))
-
-    return merged
-
-
-def label_smoothing(segments: list) -> list:
-    """
-    Apply majority-vote / Markov smoothing to speaker labels.
-    If a short segment (e.g. < 1.0s) is sandwiched between two segments
-    of the SAME speaker, and it was NOT identified with high confidence,
-    we smooth its label to match that speaker.
-    """
-    if len(segments) < 3:
-        return segments
-
-    smoothed = [dict(s) for s in segments]
-    for i in range(1, len(smoothed) - 1):
-        prev_seg = smoothed[i - 1]
-        curr_seg = smoothed[i]
-        next_seg = smoothed[i + 1]
-        
-        # If sandwiched between the same speaker
-        if prev_seg["speaker"] == next_seg["speaker"]:
-            duration = curr_seg["end"] - curr_seg["start"]
-            is_short = duration < 1.0
-            is_unidentified = not curr_seg.get("identified", False)
-            if is_short and is_unidentified:
-                curr_seg["speaker"] = prev_seg["speaker"]
-                curr_seg["similarity"] = max(prev_seg.get("similarity", 0.0), next_seg.get("similarity", 0.0))
-                curr_seg["identified"] = prev_seg.get("identified", False)
-                curr_seg["smoothed"] = True
-                
-    return smoothed
 
 
 def _get_available_port(preferred_port: int = 8000) -> int:
